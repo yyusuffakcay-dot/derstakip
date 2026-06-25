@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Öğrenci Aylık Ödev ve Başarı Takip Sistemi</title>
+    
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/29/29302.png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/29/29302.png">
+    
+    <link rel="manifest" id="pwa-manifest">
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; color: #333; padding: 10px; }
+        .header-container { text-align: center; margin-bottom: 15px; background: #2c3e50; color: white; padding: 12px; border-radius: 8px; }
+        .header-container h1 { font-size: 20px; }
+        .main-layout { display: flex; flex-direction: column; gap: 15px; max-width: 1600px; margin: 0 auto; }
+        
+        .security-bar { background: #e74c3c; color: white; padding: 10px; border-radius: 6px; display: flex; gap: 8px; align-items: center; font-weight: bold; flex-wrap: wrap; font-size: 13px; }
+        .pass-input { padding: 6px; border-radius: 4px; border: none; font-weight: bold; text-align: center; width: 100px; color: #333; }
+        
+        .left-panel { width: 100%; background: white; padding: 12px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .student-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; background: #f8fafc; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0; flex-wrap: wrap; }
+        .no-span { font-weight: bold; width: 22px; color: #7f8c8d; text-align: right; font-size: 13px; }
+        .name-input { flex: 1; min-width: 120px; padding: 6px; border: 1px dashed #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; font-size: 13px; }
+        .v-pass-input { width: 70px; padding: 6px; border: 1px solid #fab005; border-radius: 4px; font-weight: bold; text-align: center; background: #fffdf3; font-size: 12px; display: none; color: #333; }
+        .v-phone-input { width: 100px; padding: 6px; border: 1px solid #27ae60; border-radius: 4px; font-weight: bold; text-align: center; background: #f4fbf7; font-size: 12px; display: none; color: #333; }
+        
+        .go-btn { background: #2980b9; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .wp-btn { display: none; background: #25d366; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; align-items: center; justify-content: center; }
+        .wp-btn:hover { background: #20ba56; }
+        .active-row { background: #e8f4fd; border-color: #3498db; }
+
+        .add-student-btn { display: none; width: 100%; background: #27ae60; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px; text-align: center; transition: 0.2s; }
+        .add-student-btn:hover { background: #219653; }
+
+        .right-panel { width: 100%; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: none; }
+        .student-title { color: #2c3e50; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 2px solid #34495e; font-size: 18px; }
+        
+        .archive-bar { display: flex; gap: 10px; align-items: center; background: #e8f4fd; padding: 10px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #d0e3f5; flex-wrap: wrap; font-size: 13px; }
+        .archive-select { padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: bold; color: #334155; }
+
+        .week-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 20px; }
+        .week-title { font-size: 15px; color: #2c3e50; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px; }
+        
+        .days-grid { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .day-card { background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; width: 100%; }
+        .day-header { background: #34495e; color: white; padding: 6px; font-weight: bold; font-size: 13px; text-align: center; border-radius: 4px; margin-bottom: 8px; }
+        
+        .task-container { display: flex; flex-direction: column; gap: 8px; }
+        .task-box { background: #fdfefe; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px; text-align: left; }
+        .task-label { font-size: 11px; font-weight: bold; color: #475569; display: block; margin-bottom: 3px; }
+        
+        .task-input { width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; font-size: 15px; font-family: 'Traditional Arabic', 'Segoe UI', sans-serif; resize: vertical; font-weight: 500; color: #222; }
+        .note-input { background-color: #fff9db; border-color: #fab005; font-size: 14px; font-weight: bold; color: #2c3e50; }
+        
+        .score-box { display: flex; align-items: center; justify-content: center; gap: 6px; background: #f8fafc; padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 4px; }
+        .score-input { width: 60px; padding: 4px; font-size: 13px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-weight: bold; color: #000; }
+        
+        .report-score-section { background: #fdfefe; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin-top: 15px; }
+        .report-score-title { font-size: 14px; font-weight: bold; color: #2c3e50; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .report-score-grid { display: flex; flex-direction: column; gap: 8px; }
+        .report-score-row { display: flex; justify-content: space-between; background: #f8fafc; padding: 8px 12px; border-radius: 5px; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; }
+        .report-score-value { color: #2980b9; }
+
+        .weekly-badge { color: #27ae60; font-weight: bold; font-size: 13px; }
+        
+        .analysis-box { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .btn-analysis { background: #8e44ad; color: white; border: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .btn-analysis:hover { background: #732d91; }
+
+        .bottom-summary-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; background: #2c3e50; color: white; padding: 12px; border-radius: 6px; font-size: 14px; flex-wrap: wrap; gap: 5px; }
+        .monthly-score-text { font-size: 15px; font-weight: bold; }
+        #loading { text-align: center; color: #ffa502; font-weight: bold; font-size: 13px; display: none; margin-left: 5px; }
+        
+        .view-mode .task-input, .view-mode .score-input, .view-mode .name-input, .view-mode .v-pass-input, .view-mode .v-phone-input { pointer-events: none; border: none; background: transparent; box-shadow: none; resize: none; }
+
+        /* POPUP MODAL */
+        .wp-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; padding: 15px; }
+        .wp-modal-content { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); animation: popScale 0.2s ease; }
+        .modal-title { font-size: 16px; font-weight: bold; margin-bottom: 12px; color: #2c3e50; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .modal-btn-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+        .m-btn { width: 100%; padding: 10px; font-weight: bold; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 13px; background: #f8fafc; transition: 0.1s; text-align: center; }
+        .m-btn:active { transform: scale(0.98); }
+        .m-btn-week { background: #e8f4fd; color: #2980b9; border-color: #b3d7f5; }
+        .m-btn-day { background: #f4fbf7; color: #27ae60; border-color: #c7eed8; }
+        .m-btn-all { background: #34495e; color: white; }
+        .m-btn-close { background: #e74c3c; color: white; margin-top: 5px; }
+
+        .analysis-report-box { display: none; background: #fff9db; border: 1px solid #f59f00; border-radius: 8px; padding: 15px; margin-top: 15px; font-size: 14px; line-height: 1.5; color: #2b2b2b; }
+
+        @keyframes popScale { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        @media (min-width: 992px) {
+            body { padding: 20px; }
+            .main-layout { flex-direction: row; }
+            .left-panel { width: 440px; }
+            .right-panel { flex: 1; }
+            .days-grid { flex-direction: row; }
+            .day-card { width: 20%; }
+            .header-container h1 { font-size: 24px; }
+            .report-score-grid { flex-direction: row; flex-wrap: wrap; }
+            .report-score-row { width: 48%; }
+        }
+    </style>
+</head>
+<body class="view-mode" id="main-body">
+
+<div class="header-container">
+    <h1>📚 Öğrenci Aylık Ödev Takip Sistemi</h1>
+</div>
+
+<div class="main-layout" style="margin-bottom:0;">
+    <div class="security-bar" style="width:100%;">
+        <span>🔒 Hoca Girişi:</span>
+        <input type="password" class="pass-input" id="system-password" placeholder="Şifre">
+        <button class="go-btn" style="background:#27ae60;" onclick="checkTeacherPassword()">Modu Aç</button>
+        <button class="go-btn" style="background:#8e44ad;" onclick="changePasswordFlow()">🔑 Şifre Değiştir</button>
+        <span id="loading">🔄 Eşitleniyor...</span>
+        <span id="lock-status-text" style="margin-left:auto; font-size:12px; color:#f1c40f;">⚠️ VELİ GÖRÜNÜMÜ</span>
+    </div>
+</div>
+
+<div class="main-layout">
+    <div class="left-panel">
+        <h3 style="margin-bottom: 12px; color: #34495e; font-size: 15px; text-align: center;">Öğrenci Listesi</h3>
+        <div id="student-list-box"></div>
+        <button class="add-student-btn" id="add-student-row-btn" onclick="addNewStudentRowClick()">➕ Yeni Öğrenci Ekle</button>
+    </div>
+
+    <div class="right-panel" id="calendar-panel">
+        <h2 id="current-student-name" class="student-title">Öğrenci Detayı</h2>
+        
+        <div class="archive-bar">
+            <label>📅 Arşiv Dönemi Seçimi:</label>
+            <select class="archive-select" id="year-select" onchange="onPeriodChange()">
+                <option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option>
+                <option value="2029">2029</option><option value="2030">2030</option><option value="2031">2031</option>
+                <option value="2032">2032</option><option value="2033">2033</option><option value="2034">2034</option>
+                <option value="2035">2035</option><option value="2036">2036</option>
+            </select>
+            <select class="archive-select" id="month-select" onchange="onPeriodChange()">
+                <option value="Ocak">01 - Ocak</option><option value="Subat">02 - Şubat</option><option value="Mart">03 - Mart</option>
+                <option value="Nisan">04 - Nisan</option><option value="Mayis">05 - Mayıs</option><option value="Haziran">06 - Haziran</option>
+                <option value="Temmuz">07 - Temmuz</option><option value="Agustos">08 - Ağustos</option><option value="Eylul">09 - Eylül</option>
+                <option value="Ekim">10 - Ekim</option><option value="Kasim">11 - Kasım</option><option value="Aralik">12 - Aralık</option>
+            </select>
+        </div>
+
+        <div id="weeks-container"></div>
+
+        <div class="report-score-section">
+            <div class="report-score-title">📈 Haftalık Performans Puan Listesi</div>
+            <div class="report-score-grid">
+                <div class="report-score-row"><span>1. Hafta Ortalaması:</span><span class="report-score-value" id="text-score-1">%0</span></div>
+                <div class="report-score-row"><span>2. Hafta Ortalaması:</span><span class="report-score-value" id="text-score-2">%0</span></div>
+                <div class="report-score-row"><span>3. Hafta Ortalaması:</span><span class="report-score-value" id="text-score-3">%0</span></div>
+                <div class="report-score-row"><span>4. Hafta Ortalaması:</span><span class="report-score-value" id="text-score-4">%0</span></div>
+            </div>
+        </div>
+
+        <div class="analysis-box">
+            <button class="btn-analysis" onclick="generateAkilliAnaliz('haftalik')">🤖 Haftalık Robot Analizi Üret</button>
+            <button class="btn-analysis" style="background:#2980b9;" onclick="generateAkilliAnaliz('aylik')">📊 Aylık Genel Durum Analizi Üret</button>
+        </div>
+
+        <div class="analysis-report-box" id="analysisReportContainer"></div>
+
+        <div class="bottom-summary-bar">
+            <div class="monthly-score-text">Aylık Ortalama Başarı Oranı: <span id="monthly-score-total" style="color: #2ecc71;">%0</span></div>
+            <span style="font-size: 12px; color: #2ecc71; font-weight: bold;">⚡ Otomatik Kayıt</span>
+        </div>
+    </div>
+</div>
+
+<div class="wp-modal" id="wpSelectorModal">
+    <div class="wp-modal-content">
+        <div id="modal-step-1">
+            <div class="modal-title">📅 Hangi Haftayı Göndereceksin?</div>
+            <div class="modal-btn-group">
+                <button class="m-btn m-btn-week" onclick="selectWpHafta(1)">1. Hafta Raporu</button>
+                <button class="m-btn m-btn-week" onclick="selectWpHafta(2)">2. Hafta Raporu</button>
+                <button class="m-btn m-btn-week" onclick="selectWpHafta(3)">3. Hafta Raporu</button>
+                <button class="m-btn m-btn-week" onclick="selectWpHafta(4)">4. Hafta Raporu</button>
+            </div>
+        </div>
+        <div id="modal-step-2" style="display:none;">
+            <div class="modal-title">📌 Gönderilecek Günü Seç kanka</div>
+            <div class="modal-btn-group">
+                <button class="m-btn m-btn-day" onclick="executeWpSend('pazartesi')">📅 Pazartesi Günü</button>
+                <button class="m-btn m-btn-day" onclick="executeWpSend('sali')">📅 Salı Günü</button>
+                <button class="m-btn m-btn-day" onclick="executeWpSend('carsamba')">📅 Çarşamba Günü</button>
+                <button class="m-btn m-btn-day" onclick="executeWpSend('persembe')">📅 Perşembe Günü</button>
+                <button class="m-btn m-btn-day" onclick="executeWpSend('cuma')">📅 Cuma Günü</button>
+                <button class="m-btn m-btn-all" onclick="executeWpSend('hepsi')">🔥 TÜM HAFTAYI AT</button>
+            </div>
+        </div>
+        <button class="m-btn m-btn-close" onclick="closeWpModal()">❌ İptal Et</button>
+    </div>
+</div>
+
+<script>
+    // 🔴 https://oda-takip-listesi-default-rtdb.firebaseio.com/
+    const FIREBASE_URL = "https://oda-takip-listesi-default-rtdb.firebaseio.com/"; 
+
+    const RESET_CODE = "tawsann"; 
+    let isTeacher = false;
+    let activeStudentId = null;
+    let verifiedStudentAccessId = null; 
+    let maxVisibleStudents = 1; 
+    const days = ['pazartesi', 'sali', 'carsamba', 'persembe', 'cuma'];
+    const dayNamesTr = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
+    let localDataPool = {};
+
+    let wpTargetStudentId = null;
+    let wpSelectedWeek = null;
+
+    // Dinamik Manifest Kurulumu (Giriş Yapılan Linke Göre PWA Tanımlaması Yapar)
+    function setupDynamicPwaManifest() {
+        const manifestObj = {
+            "short_name": "DersTakip",
+            "name": "Öğrenci Aylık Ödev Takip Karnesi",
+            "icons": [
+                { "src": "https://cdn-icons-png.flaticon.com/512/29/29302.png", "type": "image/png", "sizes": "512 x 512" }
+            ],
+            "start_url": window.location.href,
+            "background_color": "#f0f4f8",
+            "theme-color": "#2c3e50",
+            "display": "standalone",
+            "orientation": "portrait"
+        };
+        const stringManifest = JSON.stringify(manifestObj);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        document.getElementById('pwa-manifest').setAttribute('href', manifestURL);
+    }
+
+    function initDatePickerMemory() {
+        let savedYear = localStorage.getItem('last_selected_year');
+        let savedMonth = localStorage.getItem('last_selected_month');
+        if(savedYear) document.getElementById('year-select').value = savedYear;
+        else document.getElementById('year-select').value = "2026";
+        if(savedMonth) document.getElementById('month-select').value = savedMonth;
+        else document.getElementById('month-select').value = "Haziran";
+    }
+
+    async function verileriBuluttanCek() {
+        document.getElementById("loading").style.display = "inline";
+        try {
+            let response = await fetch(`${FIREBASE_URL}ders_takip_data.json`);
+            let data = await response.json();
+            localDataPool = data || {};
+            maxVisibleStudents = parseInt(localDataPool['settings_max_visible'] || 1);
+            initStudentList();
+            if(activeStudentId) refreshCalendarDataDisplay();
+        } catch (error) {
+            console.log("Firebase bağlantı hatası:", error);
+        }
+        document.getElementById("loading").style.none = "none";
+        document.getElementById("loading").style.display = "none";
+    }
+
+    async function autoSaveSingleField(key, value) {
+        localDataPool[key] = value;
+        if(isTeacher) {
+            try {
+                await fetch(`${FIREBASE_URL}ders_takip_data/${key}.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify(value)
+                });
+            } catch (error) {
+                console.log("Otomatik kayıt hatası:", error);
+            }
+        }
+        calculateScoresLive();
+    }
+
+    async function checkTeacherPassword() {
+        const inputPass = document.getElementById('system-password').value;
+        try {
+            let response = await fetch(`${FIREBASE_URL}ders_takip_settings/hoca_sifre.json`);
+            let targetPass = await response.json();
+            if(!targetPass) targetPass = "2618654";
+
+            if (inputPass === targetPass) {
+                isTeacher = true;
+                document.getElementById('main-body').classList.remove('view-mode');
+                document.getElementById('lock-status-text').innerText = "✅ HOCA MODU AKTİF";
+                document.getElementById('lock-status-text').style.color = "#2ecc71";
+                document.getElementById('add-student-row-btn').style.display = "block";
+                alert("Giriş başarılı kanka!");
+                initStudentList();
+                if(activeStudentId) showStudentCalendar(activeStudentId);
+            } else {
+                alert("Hatalı şifre!");
+            }
+        } catch(e) {
+            if(inputPass === "2618654") {
+                isTeacher = true;
+                document.getElementById('main-body').classList.remove('view-mode');
+                document.getElementById('add-student-row-btn').style.display = "block";
+                alert("Yerel modda giriş yapıldı.");
+                initStudentList();
+            }
+        }
+    }
+
+    function changePasswordFlow() {
+        let codeInput = prompt("Şifre değiştirmek için lütfen özel KODU girin:");
+        if (codeInput !== RESET_CODE) {
+            alert("Hatalı kod!");
+            return;
+        }
+        let newPass = prompt("Onaylandı! Yeni hoca şifrenizi belirleyin:");
+        if (newPass && newPass.trim() !== "") {
+            fetch(`${FIREBASE_URL}ders_takip_settings/hoca_sifre.json`, { method: 'PUT', body: JSON.stringify(newPass.trim()) });
+            alert("Şifre güncellendi! Yeni: " + newPass);
+        }
+    }
+
+    function addNewStudentRowClick() {
+        if (!isTeacher) return;
+        if (maxVisibleStudents < 50) { 
+            maxVisibleStudents++;
+            autoSaveSingleField('settings_max_visible', maxVisibleStudents); 
+            initStudentList();
+        }
+    }
+
+    function initStudentList() {
+        const listBox = document.getElementById('student-list-box');
+        listBox.innerHTML = "";
+        
+        for (let i = 1; i <= maxVisibleStudents; i++) {
+            let savedName = localDataPool['s_name_' + i] || "";
+            let savedVPass = localDataPool['v_pass_' + i] || "";
+            let savedVPhone = localDataPool['v_phone_' + i] || "";
+            
+            let row = document.createElement('div');
+            row.className = 'student-row';
+            row.id = 'row-box-' + i;
+            if(activeStudentId == i) row.className += ' active-row';
+            
+            row.innerHTML = '<span class="no-span">' + i + '.</span>' +
+                            '<input type="text" class="name-input" id="name-in-' + i + '" value="' + savedName + '" placeholder="İsim Yazın" onchange="autoSaveSingleField(\'s_name_\' + ' + i + ', this.value)">' +
+                            '<input type="text" class="v-pass-input" id="vpass-in-' + i + '" value="' + savedVPass + '" placeholder="Şifre" onchange="autoSaveSingleField(\'v_pass_\' + ' + i + ', this.value)">' +
+                            '<input type="text" class="v-phone-input" id="vphone-in-' + i + '" value="' + savedVPhone + '" placeholder="05xx..." onchange="autoSaveSingleField(\'v_phone_\' + ' + i + ', this.value)">';
+            
+            let btn = document.createElement('button');
+            btn.className = 'go-btn';
+            btn.innerText = 'Bak ➡️';
+            btn.onclick = (function(id) { return function() { handleStudentAccessVerification(id); }; })(i);
+            row.appendChild(btn);
+
+            let wpBtn = document.createElement('button');
+            wpBtn.className = 'wp-btn';
+            wpBtn.innerHTML = '🟢 WP';
+            wpBtn.onclick = (function(id) { return function() { openWpModalFlow(id); }; })(i);
+            row.appendChild(wpBtn);
+
+            listBox.appendChild(row);
+
+            if(isTeacher) {
+                document.getElementById('vpass-in-' + i).style.display = "inline-block";
+                document.getElementById('vphone-in-' + i).style.display = "inline-block";
+                document.getElementById('add-student-row-btn').style.display = "block";
+                wpBtn.style.display = "inline-flex"; 
+            }
+        }
+    }
+
+    function handleStudentAccessVerification(id) {
+        if (isTeacher || verifiedStudentAccessId === id) {
+            showStudentCalendar(id);
+            return;
+        }
+
+        let correctVPass = localDataPool['v_pass_' + id] || "";
+        if (correctVPass === "") {
+            alert("Bu öğrenci için hoca henüz bir veli şifresi belirlememiş kanka!");
+            return;
+        }
+
+        let userInput = prompt("Talebenin bilgilerini görmek için lütfen VELİ ŞİFRESİNİ girin:");
+        if (userInput === correctVPass) {
+            verifiedStudentAccessId = id; 
+            showStudentCalendar(id);
+        } else {
+            alert("Hatalı şifre!");
+            document.getElementById('calendar-panel').style.display = "none";
+        }
+    }
+
+    function onPeriodChange() {
+        const year = document.getElementById('year-select').value;
+        const month = document.getElementById('month-select').value;
+        localStorage.setItem('last_selected_year', year);
+        localStorage.setItem('last_selected_month', month);
+
+        if (activeStudentId) {
+            document.getElementById('analysisReportContainer').style.display = "none";
+            showStudentCalendar(activeStudentId);
+        }
+    }
+
+    function showStudentCalendar(id) {
+        if (!isTeacher && verifiedStudentAccessId !== id) return;
+
+        activeStudentId = id;
+        const year = document.getElementById('year-select').value;
+        const month = document.getElementById('month-select').value;
+        
+        for(let i=1; i<=50; i++) {
+            let rBox = document.getElementById('row-box-' + i);
+            if(rBox) rBox.classList.remove('active-row');
+        }
+        if(document.getElementById('row-box-' + id)) {
+            document.getElementById('row-box-' + id).classList.add('active-row');
+        }
+
+        let savedName = localDataPool['s_name_' + id] || (id + '. Öğrenci');
+        document.getElementById('current-student-name').innerText = '👤 ' + savedName + ' - Ödev ve Başarı Karnesi';
+        
+        const weeksContainer = document.getElementById('weeks-container');
+        weeksContainer.innerHTML = "";
+
+        for (let w = 1; w <= 4; w++) {
+            let weekDiv = document.createElement('div');
+            weekDiv.className = 'week-section';
+            
+            let htmlStructure = '<div class="week-title"><span>📅 ' + w + '. Hafta Raporu (' + month + ' ' + year + ')</span><span class="weekly-badge" id="week-badge-' + w + '">%0</span></div>' +
+                                '<div class="days-grid">';
+
+            days.forEach((day, index) => {
+                let baseKey = id + '_' + year + '_' + month + '_w' + w + '_' + day;
+                
+                let rVal = localDataPool['r_' + baseKey] || "";
+                let mVal = localDataPool['m_' + baseKey] || "";
+                let rnVal = localDataPool['rn_' + baseKey] || ""; 
+                let mnVal = localDataPool['mn_' + baseKey] || ""; 
+                let sVal = localDataPool['s_' + baseKey] || "";
+
+                htmlStructure += '<div class="day-card">' +
+                                    '<div class="day-header">' + dayNamesTr[index] + '</div>' +
+                                    '<div class="task-container">' +
+                                        '<div class="task-box" style="border-left:3px solid #3498db;">' +
+                                            '<span class="task-label">📖 Yüzüne Okuma</span>' +
+                                            '<textarea class="task-input" id="in-r_' + baseKey + '" rows="2" placeholder="Örn: 24-26. syf" onchange="autoSaveSingleField(\'r_\' + \'' + baseKey + '\', this.value)">' + rVal + '</textarea>' +
+                                            '<span class="task-label" style="color:#d35400; margin-top:4px;">📝 Yüzüne Notu</span>' +
+                                            '<textarea class="task-input note-input" id="in-rn_' + baseKey + '" rows="2" placeholder="Arapça harf/kelime uyarısı" onchange="autoSaveSingleField(\'rn_\' + \'' + baseKey + '\', this.value)">' + rnVal + '</textarea>' +
+                                        '</div>' +
+                                        '<div class="task-box" style="border-left:3px solid #e67e22;">' +
+                                            '<span class="task-label">🔒 Ezber</span>' +
+                                            '<textarea class="task-input" id="in-m_' + baseKey + '" rows="2" placeholder="Örn: Nebe Suresi" onchange="autoSaveSingleField(\'m_\' + \'' + baseKey + '\', this.value)">' + mVal + '</textarea>' +
+                                            '<span class="task-label" style="color:#d35400; margin-top:4px;">📝 Ezber Notu</span>' +
+                                            '<textarea class="task-input note-input" id="in-mn_' + baseKey + '" rows="2" placeholder="Ezber Uyarısı" onchange="autoSaveSingleField(\'mn_\' + \'' + baseKey + '\', this.value)">' + mnVal + '</textarea>' +
+                                        '</div>' +
+                                        '<div class="score-box">' +
+                                            '<span class="task-label" style="color:#27ae60; font-weight:bold;">🎯 Puan:</span>' +
+                                            '<input type="number" class="score-input" id="in-s_' + baseKey + '" min="0" max="100" value="' + sVal + '" placeholder="0-100" oninput="calculateScoresLive()" onchange="autoSaveSingleField(\'s_\' + \'' + baseKey + '\', this.value)">' +
+                                        '</div>' +
+                                    '</div>' +
+                                 '</div>';
+            });
+
+            htmlStructure += '</div>'; 
+            weekDiv.innerHTML = htmlStructure;
+            weeksContainer.appendChild(weekDiv);
+        }
+
+        document.getElementById('calendar-panel').style.display = "block";
+        calculateScoresLive();
+    }
+
+    function openWpModalFlow(id) {
+        wpTargetStudentId = id;
+        document.getElementById('modal-step-1').style.display = "block";
+        document.getElementById('modal-step-2').style.display = "none";
+        document.getElementById('wpSelectorModal').style.display = "flex";
+    }
+
+    function selectWpHafta(weekNum) {
+        wpSelectedWeek = weekNum;
+        document.getElementById('modal-step-1').style.display = "none";
+        document.getElementById('modal-step-2').style.display = "block";
+    }
+
+    function closeWpModal() {
+        document.getElementById('wpSelectorModal').style.display = "none";
+        wpTargetStudentId = null;
+        wpSelectedWeek = null;
+    }
+
+    function executeWpSend(temizSecim) {
+        if(!wpTargetStudentId || !wpSelectedWeek) return;
+        
+        let id = wpTargetStudentId;
+        let w = wpSelectedWeek;
+        let phone = localDataPool['v_phone_' + id] || "";
+        let sName = localDataPool['s_name_' + id] || (id + '. Öğrenci');
+        let year = document.getElementById('year-select').value;
+        let month = document.getElementById('month-select').value;
+
+        let mesaj = "📋 *TALEBE ÖDEV VE BAŞARI RAPORU* 📋\n\n" +
+                    "👤 *Öğrenci:* " + sName + "\n" +
+                    "📅 *Dönem:* " + month + " " + year + " - " + w + ". Hafta\n" +
+                    "----------------------------------------\n\n";
+
+        let weeklySum = 0;
+        let weeklyCount = 0;
+
+        days.forEach((day, index) => {
+            let baseKey = id + '_' + year + '_' + month + '_w' + w + '_' + day;
+            let rVal = localDataPool['r_' + baseKey] || "Ödev Yok";
+            let rnVal = localDataPool['rn_' + baseKey] || "-";
+            let mVal = localDataPool['m_' + baseKey] || "Ödev Yok";
+            let mnVal = localDataPool['mn_' + baseKey] || "-";
+            let sVal = localDataPool['s_' + baseKey] || "-";
+
+            let pVal = parseFloat(sVal);
+            if (!isNaN(pVal)) {
+                weeklySum += pVal;
+                weeklyCount++;
+            }
+
+            if (temizSecim === "hepsi" || temizSecim === day) {
+                mesaj += "📌 *" + dayNamesTr[index] + "*\n" +
+                         "📖 *Yüzüne:* " + rVal + " (Not: " + rnVal + ")\n" +
+                         "🔒 *Ezber:* " + mVal + " (Not: " + mnVal + ")\n" +
+                         "🎯 *Puan:* " + sVal + "\n\n";
+            }
+        });
+
+        let weeklyResult = weeklyCount > 0 ? Math.round(weeklySum / weeklyCount) : 0;
+        mesaj += "----------------------------------------\n";
+        if (temizSecim === "hepsi") {
+            mesaj += "📊 *Haftalık Genel Başarı Ortalaması:* %" + weeklyResult + "\n\n";
+        }
+        mesaj += "💡 _Detaylı aylık grafik ve geçmiş arşiv takibi için canlı takip linkimizden sisteme giriş yapabilirsiniz._";
+
+        let cleanPhone = phone.replace(/\D/g, ''); 
+        if(cleanPhone.startsWith('0')) {
+            cleanPhone = '90' + cleanPhone.substring(1);
+        } else if(!cleanPhone.startsWith('90')) {
+            cleanPhone = '90' + cleanPhone;
+        }
+
+        let wpUrl = "https://api.whatsapp.com/send?phone=" + cleanPhone + "&text=" + encodeURIComponent(mesaj);
+        window.open(wpUrl, '_blank');
+        closeWpModal();
+    }
+
+    function generateAkilliAnaliz(tip) {
+        if(!activeStudentId) return;
+        const id = activeStudentId;
+        const year = document.getElementById('year-select').value;
+        const month = document.getElementById('month-select').value;
+        const reportContainer = document.getElementById('analysisReportContainer');
+        
+        let sName = localDataPool['s_name_' + id] || "Talebe";
+        let analizMetni = "";
+        
+        if (tip === 'haftalik') {
+            let hangiHafta = prompt("Hangi haftanın performans yorumunu analiz edelim kanka? (1, 2, 3 veya 4 yaz):", "1");
+            if (hangiHafta !== "1" && hangiHafta !== "2" && hangiHafta !== "3" && hangiHafta !== "4") return;
+            
+            let total = 0, count = 0;
+            days.forEach(day => {
+                let val = parseFloat(localDataPool['s_' + id + '_' + year + '_' + month + '_w' + hangiHafta + '_' + day]);
+                if(!isNaN(val)) { total += val; count++; }
+            });
+            
+            let ortalama = count > 0 ? Math.round(total / count) : 0;
+            
+            analizMetni = "🤖 <b>ROBOT HAFTALIK ÖDEV YORUMU (" + hangiHafta + ". Hafta)</b><br><br>" +
+                          "<b>Talebe:</b> " + sName + "<br>" +
+                          "<b>Haftalık Performans Ortalaması:</b> %" + ortalama + "<br><br>";
+            
+            if (count === 0) {
+                analizMetni += "⚠️ Bu hafta için henüz bir başarı puanı girilmemiş kanka.";
+            } else if (ortalama >= 85) {
+                analizMetni += "🌟 <b>Harika Bir Hafta!</b> " + sName + " bu hafta kuran okuma ve ezber derslerinde mükemmel bir ciddiyet gösterdi. Arapça harf geçişleri ve mahreç kalitesi oldukça yüksek seviyede. Velisi olarak evde tebrik edip motivasyonunu desteklemenizi tavsiye ederiz.";
+            } else if (ortalama >= 70) {
+                analizMetni += "✅ <b>Başarılı ve Kararlı:</b> Talebemizin genel durumu oldukça iyi. Derslerini başarıyla teslim ediyor ancak bazı harflerde veya ezber geçişlerinde ufak tefek takılmalar mevcut. Evde kısa tekrarlar faydalı olacaktır.";
+            } else if (ortalama >= 45) {
+                analizMetni += "⚠️ <b>Geliştirilmesi Gerekiyor:</b> Bu hafta derslerde biraz durgunluk gözlemledik. Özellikle ezber surelerin evde her gün en az 20 dakika sesli olarak yüzüne okunması gerekiyor.";
+            } else {
+                analizMetni += "🚨 <b>Kritik Durum / Dikkat:</b> Talebemiz bu hafta ödev ve ezber tesliminde çok zorlandı. Harf tanıma veya tecvid kurallarında boşluklar mevcut. Lütfen evdeki çalışma düzenini planlayın.";
+            }
+        } else {
+            let w1 = parseInt(document.getElementById('text-score-1').innerText.replace('%','')) || 0;
+            let w2 = parseInt(document.getElementById('text-score-2').innerText.replace('%','')) || 0;
+            let w3 = parseInt(document.getElementById('text-score-3').innerText.replace('%','')) || 0;
+            let w4 = parseInt(document.getElementById('text-score-4').innerText.replace('%','')) || 0;
+            
+            let monthlyTotal = w1 + w2 + w3 + w4;
+            let activeWeeksCount = 0;
+            if(w1 > 0) activeWeeksCount++;
+            if(w2 > 0) activeWeeksCount++;
+            if(w3 > 0) activeWeeksCount++;
+            if(w4 > 0) activeWeeksCount++;
+            
+            let ortalama = activeWeeksCount > 0 ? Math.round(monthlyTotal / activeWeeksCount) : 0;
+            
+            analizMetni = "📊 <b>ROBOT AYLIK GENEL DURUM RAPORU (" + month + " " + year + ")</b><br><br>" +
+                          "<b>Talebe:</b> " + sName + "<br>" +
+                          "<b>Haftalık İlerleme Özeti:</b><br>" +
+                          "• 1. Hafta: %" + w1 + " | • 2. Hafta: %" + w2 + "<br>" +
+                          "• 3. Hafta: %" + w3 + " | • 4. Hafta: %" + w4 + "<br><br>" +
+                          "<b>Aylık Genel Başarı Ortalaması:</b> %" + ortalama + "<br><br>";
+            
+            if (activeWeeksCount === 0) {
+                analizMetni += "⚠️ Bu ay için sisteme girilmiş bir haftalık başarı ortalaması bulunamadı kanka.";
+            } else if (ortalama >= 80) {
+                analizMetni += "🏆 <b>Haftalık İstikrarın Zirvesi!</b> Ay genelindeki tüm haftalık performanslar incelendiğinde, " + sName + " kuran okuma ve ezber ödevlerini hiç aksatmadan, her hafta üzerine koyarak teslim etmiştir. Ezber kalitesi ve ders disiplini mükemmel seviyede. Kendisini tebrik ederiz!";
+            } else if (ortalama >= 60) {
+                analizMetni += "📈 <b>Gelişen Performans:</b> Talebemizin aylık grafiğinde haftalar arası dengeli bir seyir var. Bazı haftalar ufak durgunluklar yaşanmış olsa da, genel aylık toplamda hedeflenen tecvid ve mahreç kalitesine ulaşıldı. Önümüzdeki ay ezber temposunu bir tık daha artırabiliriz.";
+            } else {
+                analizMetni += "🔍 <b>Sıkı Takip Önerisi:</b> Ay içindeki haftalık not ortalamaları maalesef beklentinin altında kaldı. Haftalık ders tekrarlarının tam yapılmaması, sonraki haftaların derslerini de zincirleme zorlaştırmış. Önümüzdeki ay hoca notlarına göre evde günlük 20 dakika zorunlu okuma saatleri planlamanızı tavsiye ederiz.";
+            }
+        }
+        
+        reportContainer.innerHTML = analizMetni;
+        reportContainer.style.display = "block";
+    }
+
+    function refreshCalendarDataDisplay() {
+        if (!isTeacher && verifiedStudentAccessId !== activeStudentId) return;
+        const year = document.getElementById('year-select').value;
+        const month = document.getElementById('month-select').value;
+        const id = activeStudentId;
+
+        for (let w = 1; w <= 4; w++) {
+            days.forEach(day => {
+                let baseKey = id + '_' + year + '_' + month + '_w' + w + '_' + day;
+                let rEl = document.getElementById('in-r_' + baseKey);
+                let mEl = document.getElementById('in-m_' + baseKey);
+                let rnEl = document.getElementById('in-rn_' + baseKey);
+                let mnEl = document.getElementById('in-mn_' + baseKey);
+                let sEl = document.getElementById('in-s_' + baseKey);
+
+                if(rEl && document.activeElement !== rEl) rEl.value = localDataPool['r_' + baseKey] || "";
+                if(mEl && document.activeElement !== mEl) mEl.value = localDataPool['m_' + baseKey] || "";
+                if(rnEl && document.activeElement !== rnEl) rnEl.value = localDataPool['rn_' + baseKey] || "";
+                if(mnEl && document.activeElement !== mnEl) mnEl.value = localDataPool['mn_' + baseKey] || "";
+                if(sEl && document.activeElement !== sEl) sEl.value = localDataPool['s_' + baseKey] || "";
+            });
+        }
+        calculateScoresLive();
+    }
+
+    function calculateScoresLive() {
+        if (!activeStudentId) return;
+        let id = activeStudentId;
+        const year = document.getElementById('year-select').value;
+        const month = document.getElementById('month-select').value;
+        
+        let monthlySum = 0;
+        let monthlyCount = 0;
+
+        for (let w = 1; w <= 4; w++) {
+            let weeklySum = 0;
+            let weeklyCount = 0;
+
+            days.forEach(day => {
+                let scoreEl = document.getElementById('in-s_' + id + '_' + year + '_' + month + '_w' + w + '_' + day);
+                if (scoreEl) {
+                    let val = parseFloat(scoreEl.value);
+                    if (!isNaN(val)) {
+                        weeklySum += val;
+                        weeklyCount++;
+                    }
+                }
+            });
+
+            let weeklyResult = weeklyCount > 0 ? Math.round(weeklySum / weeklyCount) : 0;
+            let badge = document.getElementById('week-badge-' + w);
+            if(badge) badge.innerText = 'Haftalık Başarı: %' + weeklyResult;
+            
+            let textScoreEl = document.getElementById('text-score-' + w);
+            if(textScoreEl) {
+                textScoreEl.innerText = '%' + weeklyResult;
+            }
+
+            if (weeklyCount > 0) {
+                monthlySum += weeklyResult;
+                monthlyCount++;
+            }
+        }
+
+        let monthlyResult = monthlyCount > 0 ? Math.round(monthlySum / monthlyCount) : 0;
+        let totalDisplay = document.getElementById('monthly-score-total');
+        if(totalDisplay) totalDisplay.innerText = '%' + monthlyResult;
+    }
+
+    // Başlangıç Ayarları
+    setupDynamicPwaManifest();
+    initDatePickerMemory();
+    verileriBuluttanCek();
+    setInterval(verileriBuluttanCek, 15000);
+</script>
+</body>
+</html>
