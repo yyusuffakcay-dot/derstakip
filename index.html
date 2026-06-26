@@ -40,7 +40,6 @@
         .wp-btn { display: none; background: #25d366; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; align-items: center; justify-content: center; }
         .wp-btn:hover { background: #20ba56; }
         
-        /* 🗑️ Tekli Silme Butonu Stili */
         .del-btn { display: none; background: #e74c3c; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .del-btn:hover { background: #c0392b; }
         
@@ -50,7 +49,6 @@
         .add-student-btn { display: none; width: 100%; background: #27ae60; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; text-align: center; transition: 0.2s; }
         .add-student-btn:hover { background: #219653; }
         
-        /* 💥 Toplu Silme Butonu Stili */
         .clear-all-btn { display: none; width: 100%; background: #7f8c8d; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; text-align: center; transition: 0.2s; }
         .clear-all-btn:hover { background: #64748b; }
 
@@ -135,7 +133,7 @@
     <div class="security-bar" style="width:100%;">
         <span>🔒 Hoca Girişi:</span>
         <input type="password" class="pass-input" id="system-password" placeholder="Şifre">
-        <button class="go-btn" style="background:#27ae60;" onclick="checkTeacherPassword()">Modu Aç</button>
+        <button class="go-btn" style="background:#27ae60;" onclick="checkTeacherPassword(document.getElementById('system-password').value)">Modu Aç</button>
         <button class="go-btn" style="background:#8e44ad;" onclick="changePasswordFlow()">🔑 Şifre Değiştir</button>
         <span id="loading">🔄 Eşitleniyor...</span>
         <span id="lock-status-text" style="margin-left:auto; font-size:12px; color:#f1c40f;">⚠️ VELİ GÖRÜNÜMÜ</span>
@@ -143,7 +141,6 @@
 </div>
 
 <div class="main-layout">
-    <!-- SOL TARAF: İSİM LİSTESİ -->
     <div class="left-panel">
         <h3 style="margin-bottom: 12px; color: #34495e; font-size: 15px; text-align: center;">Öğrenci Listesi</h3>
         <div id="student-list-box"></div>
@@ -153,7 +150,6 @@
         </div>
     </div>
 
-    <!-- SAĞ TARAF: DETAYLAR VE ARŞİV -->
     <div class="right-panel" id="calendar-panel">
         <h2 id="current-student-name" class="student-title">Öğrenci Detayı</h2>
         
@@ -199,7 +195,6 @@
     </div>
 </div>
 
-<!-- WHATSAPP SEÇİM MODAL SİSTEMİ -->
 <div class="wp-modal" id="wpSelectorModal">
     <div class="wp-modal-content">
         <div id="modal-step-1">
@@ -277,10 +272,19 @@
             let data = await response.json();
             localDataPool = data || {};
             maxVisibleStudents = parseInt(localDataPool['settings_max_visible'] || 1);
-            initStudentList();
+            
+            // 🔑 Sayfa yüklenirken yerel hafızada şifre varsa otomatik giriş yap kanka
+            let savedPass = localStorage.getItem('hoca_otomatik_sifre');
+            if(savedPass && !isTeacher) {
+                await checkTeacherPassword(savedPass, true);
+            } else {
+                initStudentList();
+            }
+            
             if(activeStudentId) refreshCalendarDataDisplay();
         } catch (error) {
             console.log("Firebase bağlantı hatası:", error);
+            initStudentList();
         }
         document.getElementById("loading").style.display = "none";
     }
@@ -300,8 +304,9 @@
         calculateScoresLive();
     }
 
-    async function checkTeacherPassword() {
-        const inputPass = document.getElementById('system-password').value;
+    // 🔑 ŞİFRE KONTROL VE HAFIZAYA ALMA MOTORU
+    async function checkTeacherPassword(inputPass, isAutoLoad = false) {
+        if(!inputPass || inputPass.trim() === "") return;
         try {
             let response = await fetch(`${FIREBASE_URL}ders_takip_settings/hoca_sifre.json`);
             let targetPass = await response.json();
@@ -309,24 +314,28 @@
 
             if (inputPass === targetPass) {
                 isTeacher = true;
+                localStorage.setItem('hoca_otomatik_sifre', inputPass); // Şifreyi tarayıcıya kilitle
+                document.getElementById('system-password').value = inputPass;
                 document.getElementById('main-body').classList.remove('view-mode');
                 document.getElementById('lock-status-text').innerText = "✅ HOCA MODU AKTİF";
                 document.getElementById('lock-status-text').style.color = "#2ecc71";
                 document.getElementById('add-student-row-btn').style.display = "block";
                 document.getElementById('clear-all-students-btn').style.display = "block";
-                alert("Giriş başarılı kanka!");
+                
+                if(!isAutoLoad) alert("Giriş başarılı kanka! Şifren bu cihaza kaydedildi.");
                 initStudentList();
                 if(activeStudentId) showStudentCalendar(activeStudentId);
             } else {
-                alert("Hatalı şifre!");
+                if(!isAutoLoad) alert("Hatalı şifre!");
+                localStorage.removeItem('hoca_otomatik_sifre');
             }
         } catch(e) {
             if(inputPass === "2618654") {
                 isTeacher = true;
+                localStorage.setItem('hoca_otomatik_sifre', inputPass);
                 document.getElementById('main-body').classList.remove('view-mode');
                 document.getElementById('add-student-row-btn').style.display = "block";
                 document.getElementById('clear-all-students-btn').style.display = "block";
-                alert("Yerel modda giriş yapıldı.");
                 initStudentList();
             }
         }
@@ -341,6 +350,7 @@
         let newPass = prompt("Onaylandı! Yeni hoca şifrenizi belirleyin:");
         if (newPass && newPass.trim() !== "") {
             fetch(`${FIREBASE_URL}ders_takip_settings/hoca_sifre.json`, { method: 'PUT', body: JSON.stringify(newPass.trim()) });
+            localStorage.setItem('hoca_otomatik_sifre', newPass.trim());
             alert("Şifre güncellendi! Yeni: " + newPass);
         }
     }
@@ -354,58 +364,65 @@
         }
     }
 
-    // 🗑️ TEK TEK ÖĞRENCİ SİLME MOTORU
+    // 🗑️ TEK TEK ÖĞRENCİ VE KUTU SİLME MOTORU
     async function deleteSingleStudentClick(id) {
         if (!isTeacher) return;
         let sName = localDataPool['s_name_' + id] || (id + '. Sıradaki Öğrenci');
         
-        let onay = confirm(`⚠️ DİKKAT KANKA:\n\n"${sName}" isimli öğrencinin adını, şifresini ve telefon bilgilerini tamamen silmek istediğine emin misin?`);
+        let onay = confirm(`⚠️ DİKKAT KANKA:\n\n"${sName}" isimli öğrenciyi ve kutusunu tamamen silmek istediğine emin misin?\nBu işlem kutu sayısını da azaltacaktır.`);
         if(!onay) return;
 
         document.getElementById("loading").style.display = "inline";
-        
-        // Lokal havuzdan temizle
-        localDataPool['s_name_' + id] = "";
-        localDataPool['v_pass_' + id] = "";
-        localDataPool['v_phone_' + id] = "";
 
         try {
-            // Firebase veritabanından isim, şifre ve telefon kayıtlarını uçur
-            await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${id}.json`, { method: 'DELETE' });
-            await fetch(`${FIREBASE_URL}ders_takip_data/v_pass_${id}.json`, { method: 'DELETE' });
-            await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${id}.json`, { method: 'DELETE' });
+            // 1. Silinen öğrenciden sonraki tüm öğrencileri birer sıra yukarı kaydır kanka (Kutular boş kalmasın diye)
+            for (let i = id; i < maxVisibleStudents; i++) {
+                let nextId = i + 1;
+                localDataPool['s_name_' + i] = localDataPool['s_name_' + nextId] || "";
+                localDataPool['v_pass_' + i] = localDataPool['v_pass_' + nextId] || "";
+                localDataPool['v_phone_' + i] = localDataPool['v_phone_' + nextId] || "";
+
+                await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${i}.json`, { method: 'PUT', body: JSON.stringify(localDataPool['s_name_' + i]) });
+                await fetch(`${FIREBASE_URL}ders_takip_data/v_pass_${i}.json`, { method: 'PUT', body: JSON.stringify(localDataPool['v_pass_' + i]) });
+                await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${i}.json`, { method: 'PUT', body: JSON.stringify(localDataPool['v_phone_' + i]) });
+            }
+
+            // 2. En sondaki artık boşa çıkan mükerrer kutunun verilerini tamamen temizle
+            await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${maxVisibleStudents}.json`, { method: 'DELETE' });
+            await fetch(`${FIREBASE_URL}ders_takip_data/v_pass_${maxVisibleStudents}.json`, { method: 'DELETE' });
+            await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${maxVisibleStudents}.json`, { method: 'DELETE' });
+
+            // 3. Toplam görünür kutu adetini 1 eksilt ve Firebase'e kaydet
+            maxVisibleStudents = maxVisibleStudents > 1 ? maxVisibleStudents - 1 : 1;
+            await fetch(`${FIREBASE_URL}ders_takip_data/settings_max_visible.json`, { method: 'PUT', body: JSON.stringify(maxVisibleStudents) });
+            localDataPool['settings_max_visible'] = maxVisibleStudents;
+
+            alert("Öğrenci silindi ve kutusu başarıyla kaldırıldı kanka!");
             
-            alert("Öğrenci bilgileri başarıyla temizlendi kanka!");
-            
-            // Eğer silinen öğrenci o an ekranda açıksa takvimi gizle
-            if (activeStudentId == id) {
+            if (activeStudentId == id || activeStudentId > maxVisibleStudents) {
                 document.getElementById('calendar-panel').style.display = "none";
                 activeStudentId = null;
             }
             
             initStudentList();
         } catch (error) {
-            alert("Silme işlemi sırasında Firebase bağlantı hatası oluştu!");
+            alert("Silme işlemi sırasında hata oluştu!");
+            console.log(error);
         }
         document.getElementById("loading").style.display = "none";
     }
 
-    // 💥 TOPLU LİSTE SIFIRLAMA MOTORU (3 AŞAMALI GÜVENLİK)
     async function clearAllStudentsClick() {
         if (!isTeacher) return;
 
         let onay1 = confirm("🚨🚨🚨 ÇOK KRİTİK UYARI:\n\nÖğrenci listesindeki TÜM isimleri, şifreleri ve telefon numaralarını tamamen sıfırlamak istiyor musun kanka?");
         if (!onay1) return;
 
-        let onay2 = confirm("Emin misin bak? Bu işlem geri alınamaz! Tüm isimler silinecek.");
+        let onay2 = confirm("Emin misin bak? Tüm listeyi tek kutuya düşürecek.");
         if (!onay2) return;
-
-        let onay3 = confirm("Son kez soruyorum kanka, listenin tamamı bomboş olacak. Onaylıyor musun?");
-        if (!onay3) return;
 
         document.getElementById("loading").style.display = "inline";
 
-        // Firebase veritabanından genel listeyi temizle ve görünürlüğü 1'e çek
         try {
             for (let i = 1; i <= maxVisibleStudents; i++) {
                 await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${i}.json`, { method: 'DELETE' });
@@ -415,12 +432,13 @@
             
             maxVisibleStudents = 1;
             await fetch(`${FIREBASE_URL}ders_takip_data/settings_max_visible.json`, { method: 'PUT', body: JSON.stringify(1) });
+            localDataPool['settings_max_visible'] = 1;
             
             document.getElementById('calendar-panel').style.display = "none";
             activeStudentId = null;
             
             alert("Tüm öğrenci listesi başarıyla sıfırlandı kanka!");
-            await verileriBuluttanCek();
+            initStudentList();
         } catch (error) {
             alert("Toplu sıfırlama sırasında hata oluştu!");
         }
@@ -458,7 +476,6 @@
             wpBtn.onclick = (function(id) { return function() { openWpModalFlow(id); }; })(i);
             row.appendChild(wpBtn);
 
-            // 🗑️ Tekli silme butonunu satıra ekleme
             let delBtn = document.createElement('button');
             delBtn.className = 'del-btn';
             delBtn.id = 'del-btn-' + i;
@@ -474,7 +491,7 @@
                 document.getElementById('add-student-row-btn').style.display = "block";
                 document.getElementById('clear-all-students-btn').style.display = "block";
                 wpBtn.style.display = "inline-flex"; 
-                delBtn.style.display = "inline-block"; // Hoca modundaysa çöp tenekesi açılır
+                delBtn.style.display = "inline-block"; 
             }
         }
     }
