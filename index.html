@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Öğrenci Aylık Ödev ve Başarı Takip Sistemi</title>
     
+    <!-- 📱 MOBİL UYGULAMA (PWA) DESTEK AYARLARI -->
     <meta name="theme-color" content="#2c3e50">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/29/29302.png">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/29/29302.png">
     
+    <!-- Dinamik Manifest Altyapısı -->
     <link rel="manifest" id="pwa-manifest">
 
+    <!-- Firebase Kütüphaneleri -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
@@ -36,10 +39,20 @@
         .go-btn { background: #2980b9; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .wp-btn { display: none; background: #25d366; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; align-items: center; justify-content: center; }
         .wp-btn:hover { background: #20ba56; }
+        
+        /* 🗑️ Tekli Silme Butonu Stili */
+        .del-btn { display: none; background: #e74c3c; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .del-btn:hover { background: #c0392b; }
+        
         .active-row { background: #e8f4fd; border-color: #3498db; }
 
-        .add-student-btn { display: none; width: 100%; background: #27ae60; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 5px; text-align: center; transition: 0.2s; }
+        .list-management-box { display: flex; gap: 8px; margin-top: 8px; flex-direction: column; }
+        .add-student-btn { display: none; width: 100%; background: #27ae60; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; text-align: center; transition: 0.2s; }
         .add-student-btn:hover { background: #219653; }
+        
+        /* 💥 Toplu Silme Butonu Stili */
+        .clear-all-btn { display: none; width: 100%; background: #7f8c8d; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; text-align: center; transition: 0.2s; }
+        .clear-all-btn:hover { background: #64748b; }
 
         .right-panel { width: 100%; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: none; }
         .student-title { color: #2c3e50; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 2px solid #34495e; font-size: 18px; }
@@ -56,7 +69,7 @@
         
         .task-container { display: flex; flex-direction: column; gap: 8px; }
         .task-box { background: #fdfefe; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px; text-align: left; }
-        .task-label { font-size: 11px; font-weight: bold; color: #475569; display: block; margin-bottom: 3px; }
+        .task-box span { font-size: 11px; font-weight: bold; color: #475569; display: block; margin-bottom: 3px; }
         
         .task-input { width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; font-size: 15px; font-family: 'Traditional Arabic', 'Segoe UI', sans-serif; resize: vertical; font-weight: 500; color: #222; }
         .note-input { background-color: #fff9db; border-color: #fab005; font-size: 14px; font-weight: bold; color: #2c3e50; }
@@ -108,6 +121,7 @@
             .header-container h1 { font-size: 24px; }
             .report-score-grid { flex-direction: row; flex-wrap: wrap; }
             .report-score-row { width: 48%; }
+            .list-management-box { flex-direction: row; }
         }
     </style>
 </head>
@@ -129,12 +143,17 @@
 </div>
 
 <div class="main-layout">
+    <!-- SOL TARAF: İSİM LİSTESİ -->
     <div class="left-panel">
         <h3 style="margin-bottom: 12px; color: #34495e; font-size: 15px; text-align: center;">Öğrenci Listesi</h3>
         <div id="student-list-box"></div>
-        <button class="add-student-btn" id="add-student-row-btn" onclick="addNewStudentRowClick()">➕ Yeni Öğrenci Ekle</button>
+        <div class="list-management-box">
+            <button class="add-student-btn" id="add-student-row-btn" onclick="addNewStudentRowClick()">➕ Yeni Öğrenci Ekle</button>
+            <button class="clear-all-btn" id="clear-all-students-btn" onclick="clearAllStudentsClick()">💥 Tüm Listeyi Sıfırla</button>
+        </div>
     </div>
 
+    <!-- SAĞ TARAF: DETAYLAR VE ARŞİV -->
     <div class="right-panel" id="calendar-panel">
         <h2 id="current-student-name" class="student-title">Öğrenci Detayı</h2>
         
@@ -180,6 +199,7 @@
     </div>
 </div>
 
+<!-- WHATSAPP SEÇİM MODAL SİSTEMİ -->
 <div class="wp-modal" id="wpSelectorModal">
     <div class="wp-modal-content">
         <div id="modal-step-1">
@@ -222,7 +242,6 @@
     let wpTargetStudentId = null;
     let wpSelectedWeek = null;
 
-    // Dinamik Manifest Kurulumu (Giriş Yapılan Linke Göre PWA Tanımlaması Yapar)
     function setupDynamicPwaManifest() {
         const manifestObj = {
             "short_name": "DersTakip",
@@ -263,7 +282,6 @@
         } catch (error) {
             console.log("Firebase bağlantı hatası:", error);
         }
-        document.getElementById("loading").style.none = "none";
         document.getElementById("loading").style.display = "none";
     }
 
@@ -295,6 +313,7 @@
                 document.getElementById('lock-status-text').innerText = "✅ HOCA MODU AKTİF";
                 document.getElementById('lock-status-text').style.color = "#2ecc71";
                 document.getElementById('add-student-row-btn').style.display = "block";
+                document.getElementById('clear-all-students-btn').style.display = "block";
                 alert("Giriş başarılı kanka!");
                 initStudentList();
                 if(activeStudentId) showStudentCalendar(activeStudentId);
@@ -306,6 +325,7 @@
                 isTeacher = true;
                 document.getElementById('main-body').classList.remove('view-mode');
                 document.getElementById('add-student-row-btn').style.display = "block";
+                document.getElementById('clear-all-students-btn').style.display = "block";
                 alert("Yerel modda giriş yapıldı.");
                 initStudentList();
             }
@@ -332,6 +352,79 @@
             autoSaveSingleField('settings_max_visible', maxVisibleStudents); 
             initStudentList();
         }
+    }
+
+    // 🗑️ TEK TEK ÖĞRENCİ SİLME MOTORU
+    async function deleteSingleStudentClick(id) {
+        if (!isTeacher) return;
+        let sName = localDataPool['s_name_' + id] || (id + '. Sıradaki Öğrenci');
+        
+        let onay = confirm(`⚠️ DİKKAT KANKA:\n\n"${sName}" isimli öğrencinin adını, şifresini ve telefon bilgilerini tamamen silmek istediğine emin misin?`);
+        if(!onay) return;
+
+        document.getElementById("loading").style.display = "inline";
+        
+        // Lokal havuzdan temizle
+        localDataPool['s_name_' + id] = "";
+        localDataPool['v_pass_' + id] = "";
+        localDataPool['v_phone_' + id] = "";
+
+        try {
+            // Firebase veritabanından isim, şifre ve telefon kayıtlarını uçur
+            await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${id}.json`, { method: 'DELETE' });
+            await fetch(`${FIREBASE_URL}ders_takip_data/v_pass_${id}.json`, { method: 'DELETE' });
+            await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${id}.json`, { method: 'DELETE' });
+            
+            alert("Öğrenci bilgileri başarıyla temizlendi kanka!");
+            
+            // Eğer silinen öğrenci o an ekranda açıksa takvimi gizle
+            if (activeStudentId == id) {
+                document.getElementById('calendar-panel').style.display = "none";
+                activeStudentId = null;
+            }
+            
+            initStudentList();
+        } catch (error) {
+            alert("Silme işlemi sırasında Firebase bağlantı hatası oluştu!");
+        }
+        document.getElementById("loading").style.display = "none";
+    }
+
+    // 💥 TOPLU LİSTE SIFIRLAMA MOTORU (3 AŞAMALI GÜVENLİK)
+    async function clearAllStudentsClick() {
+        if (!isTeacher) return;
+
+        let onay1 = confirm("🚨🚨🚨 ÇOK KRİTİK UYARI:\n\nÖğrenci listesindeki TÜM isimleri, şifreleri ve telefon numaralarını tamamen sıfırlamak istiyor musun kanka?");
+        if (!onay1) return;
+
+        let onay2 = confirm("Emin misin bak? Bu işlem geri alınamaz! Tüm isimler silinecek.");
+        if (!onay2) return;
+
+        let onay3 = confirm("Son kez soruyorum kanka, listenin tamamı bomboş olacak. Onaylıyor musun?");
+        if (!onay3) return;
+
+        document.getElementById("loading").style.display = "inline";
+
+        // Firebase veritabanından genel listeyi temizle ve görünürlüğü 1'e çek
+        try {
+            for (let i = 1; i <= maxVisibleStudents; i++) {
+                await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${i}.json`, { method: 'DELETE' });
+                await fetch(`${FIREBASE_URL}ders_takip_data/v_pass_${i}.json`, { method: 'DELETE' });
+                await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${i}.json`, { method: 'DELETE' });
+            }
+            
+            maxVisibleStudents = 1;
+            await fetch(`${FIREBASE_URL}ders_takip_data/settings_max_visible.json`, { method: 'PUT', body: JSON.stringify(1) });
+            
+            document.getElementById('calendar-panel').style.display = "none";
+            activeStudentId = null;
+            
+            alert("Tüm öğrenci listesi başarıyla sıfırlandı kanka!");
+            await verileriBuluttanCek();
+        } catch (error) {
+            alert("Toplu sıfırlama sırasında hata oluştu!");
+        }
+        document.getElementById("loading").style.display = "none";
     }
 
     function initStudentList() {
@@ -365,13 +458,23 @@
             wpBtn.onclick = (function(id) { return function() { openWpModalFlow(id); }; })(i);
             row.appendChild(wpBtn);
 
+            // 🗑️ Tekli silme butonunu satıra ekleme
+            let delBtn = document.createElement('button');
+            delBtn.className = 'del-btn';
+            delBtn.id = 'del-btn-' + i;
+            delBtn.innerHTML = '🗑️';
+            delBtn.onclick = (function(id) { return function() { deleteSingleStudentClick(id); }; })(i);
+            row.appendChild(delBtn);
+
             listBox.appendChild(row);
 
             if(isTeacher) {
                 document.getElementById('vpass-in-' + i).style.display = "inline-block";
                 document.getElementById('vphone-in-' + i).style.display = "inline-block";
                 document.getElementById('add-student-row-btn').style.display = "block";
+                document.getElementById('clear-all-students-btn').style.display = "block";
                 wpBtn.style.display = "inline-flex"; 
+                delBtn.style.display = "inline-block"; // Hoca modundaysa çöp tenekesi açılır
             }
         }
     }
@@ -451,19 +554,19 @@
                                     '<div class="day-header">' + dayNamesTr[index] + '</div>' +
                                     '<div class="task-container">' +
                                         '<div class="task-box" style="border-left:3px solid #3498db;">' +
-                                            '<span class="task-label">📖 Yüzüne Okuma</span>' +
+                                            '<span>📖 Yüzüne Okuma</span>' +
                                             '<textarea class="task-input" id="in-r_' + baseKey + '" rows="2" placeholder="Örn: 24-26. syf" onchange="autoSaveSingleField(\'r_\' + \'' + baseKey + '\', this.value)">' + rVal + '</textarea>' +
-                                            '<span class="task-label" style="color:#d35400; margin-top:4px;">📝 Yüzüne Notu</span>' +
+                                            '<span style="color:#d35400; margin-top:4px;">📝 Yüzüne Notu</span>' +
                                             '<textarea class="task-input note-input" id="in-rn_' + baseKey + '" rows="2" placeholder="Arapça harf/kelime uyarısı" onchange="autoSaveSingleField(\'rn_\' + \'' + baseKey + '\', this.value)">' + rnVal + '</textarea>' +
                                         '</div>' +
                                         '<div class="task-box" style="border-left:3px solid #e67e22;">' +
-                                            '<span class="task-label">🔒 Ezber</span>' +
+                                            '<span>🔒 Ezber</span>' +
                                             '<textarea class="task-input" id="in-m_' + baseKey + '" rows="2" placeholder="Örn: Nebe Suresi" onchange="autoSaveSingleField(\'m_\' + \'' + baseKey + '\', this.value)">' + mVal + '</textarea>' +
-                                            '<span class="task-label" style="color:#d35400; margin-top:4px;">📝 Ezber Notu</span>' +
+                                            '<span style="color:#d35400; margin-top:4px;">📝 Ezber Notu</span>' +
                                             '<textarea class="task-input note-input" id="in-mn_' + baseKey + '" rows="2" placeholder="Ezber Uyarısı" onchange="autoSaveSingleField(\'mn_\' + \'' + baseKey + '\', this.value)">' + mnVal + '</textarea>' +
                                         '</div>' +
                                         '<div class="score-box">' +
-                                            '<span class="task-label" style="color:#27ae60; font-weight:bold;">🎯 Puan:</span>' +
+                                            '<span style="color:#27ae60; font-weight:bold;">🎯 Puan:</span>' +
                                             '<input type="number" class="score-input" id="in-s_' + baseKey + '" min="0" max="100" value="' + sVal + '" placeholder="0-100" oninput="calculateScoresLive()" onchange="autoSaveSingleField(\'s_\' + \'' + baseKey + '\', this.value)">' +
                                         '</div>' +
                                     '</div>' +
