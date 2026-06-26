@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Öğrenci Aylık Ödev ve Başarı Takip Sistemi</title>
+    <title id="site-tab-title">Öğrenci Aylık Ödev ve Başarı Takip Sistemi</title>
     
     <!-- 📱 MOBİL UYGULAMA (PWA) DESTEK AYARLARI -->
     <meta name="theme-color" content="#2c3e50">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/29/29302.png">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/29/29302.png">
+    <link rel="icon" id="favicon-link" href="https://i.hizliresim.com/rlvtihb.jpg">
+    <link rel="apple-touch-icon" id="apple-icon-link" href="https://i.hizliresim.com/rlvtihb.jpg">
     
     <!-- Dinamik Manifest Altyapısı -->
     <link rel="manifest" id="pwa-manifest">
@@ -19,11 +19,24 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
+    <script>
+        // =================================================================
+        // ✨ MEDRESE LOGO VE İSİM AYARLARI ✨
+        // =================================================================
+        const MEDRESE_ISMI = "İLK İKRA MEDRESESİ DERS TAKİP PLATFORMU"; 
+        const MEDRESE_LOGO_URL = "https://i.hizliresim.com/rlvtihb.jpg"; 
+        // =================================================================
+        
+        // 🔴 https://oda-takip-listesi-default-rtdb.firebaseio.com/
+        const FIREBASE_URL = "https://oda-takip-listesi-default-rtdb.firebaseio.com/"; 
+    </script>
+    
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; color: #333; padding: 10px; }
-        .header-container { text-align: center; margin-bottom: 15px; background: #2c3e50; color: white; padding: 12px; border-radius: 8px; }
-        .header-container h1 { font-size: 20px; }
+        .header-container { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 15px; background: #2c3e50; color: white; padding: 15px; border-radius: 8px; flex-wrap: wrap; }
+        .header-container img { width: 55px; height: 55px; object-fit: contain; border-radius: 50%; background: white; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .header-container h1 { font-size: 18px; text-align: center; font-weight: bold; letter-spacing: 0.5px; }
         .main-layout { display: flex; flex-direction: column; gap: 15px; max-width: 1600px; margin: 0 auto; }
         
         .security-bar { background: #e74c3c; color: white; padding: 10px; border-radius: 6px; display: flex; gap: 8px; align-items: center; font-weight: bold; flex-wrap: wrap; font-size: 13px; }
@@ -91,7 +104,7 @@
         .monthly-score-text { font-size: 15px; font-weight: bold; }
         #loading { text-align: center; color: #ffa502; font-weight: bold; font-size: 13px; display: none; margin-left: 5px; }
         
-        .view-mode .task-input, .view-mode .score-input, .view-mode .name-input, .view-mode .v-pass-input, .view-mode .v-phone-input { pointer-events: none; border: none; background: transparent; box-shadow: none; resize: none; }
+        .view-mode .task-input, .view-mode .score-input, .view-mode .name-input, .view-mode .view-mode .v-pass-input, .view-mode .v-phone-input { pointer-events: none; border: none; background: transparent; box-shadow: none; resize: none; }
 
         /* POPUP MODAL */
         .wp-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; padding: 15px; }
@@ -116,7 +129,7 @@
             .right-panel { flex: 1; }
             .days-grid { flex-direction: row; }
             .day-card { width: 20%; }
-            .header-container h1 { font-size: 24px; }
+            .header-container h1 { font-size: 22px; }
             .report-score-grid { flex-direction: row; flex-wrap: wrap; }
             .report-score-row { width: 48%; }
             .list-management-box { flex-direction: row; }
@@ -126,7 +139,8 @@
 <body class="view-mode" id="main-body">
 
 <div class="header-container">
-    <h1>📚 Öğrenci Aylık Ödev Takip Sistemi</h1>
+    <img id="medrese-logo-img" src="" alt="Logo">
+    <h1 id="medrese-header-title">📋 İLK İKRA MEDRESESİ DERS TAKİP PLATFORMU</h1>
 </div>
 
 <div class="main-layout" style="margin-bottom:0;">
@@ -222,10 +236,6 @@
 </div>
 
 <script>
-    // 🔴 https://oda-takip-listesi-default-rtdb.firebaseio.com/
-    const FIREBASE_URL = "https://oda-takip-listesi-default-rtdb.firebaseio.com/"; 
-
-    const RESET_CODE = "tawsann"; 
     let isTeacher = false;
     let activeStudentId = null;
     let verifiedStudentAccessId = null; 
@@ -237,12 +247,20 @@
     let wpTargetStudentId = null;
     let wpSelectedWeek = null;
 
+    function applyMedreseKurumsalAyarlari() {
+        document.getElementById('site-tab-title').innerText = MEDRESE_ISMI;
+        document.getElementById('medrese-header-title').innerText = "📋 " + MEDRESE_ISMI;
+        document.getElementById('medrese-logo-img').src = MEDRESE_LOGO_URL;
+        document.getElementById('favicon-link').href = MEDRESE_LOGO_URL;
+        document.getElementById('apple-icon-link').href = MEDRESE_LOGO_URL;
+    }
+
     function setupDynamicPwaManifest() {
         const manifestObj = {
-            "short_name": "DersTakip",
-            "name": "Öğrenci Aylık Ödev Takip Karnesi",
+            "short_name": "İlkİkra",
+            "name": MEDRESE_ISMI,
             "icons": [
-                { "src": "https://cdn-icons-png.flaticon.com/512/29/29302.png", "type": "image/png", "sizes": "512 x 512" }
+                { "src": MEDRESE_LOGO_URL, "type": "image/jpeg", "sizes": "512 x 512" }
             ],
             "start_url": window.location.href,
             "background_color": "#f0f4f8",
@@ -273,7 +291,6 @@
             localDataPool = data || {};
             maxVisibleStudents = parseInt(localDataPool['settings_max_visible'] || 1);
             
-            // 🔑 Sayfa yüklenirken yerel hafızada şifre varsa otomatik giriş yap kanka
             let savedPass = localStorage.getItem('hoca_otomatik_sifre');
             if(savedPass && !isTeacher) {
                 await checkTeacherPassword(savedPass, true);
@@ -304,7 +321,6 @@
         calculateScoresLive();
     }
 
-    // 🔑 ŞİFRE KONTROL VE HAFIZAYA ALMA MOTORU
     async function checkTeacherPassword(inputPass, isAutoLoad = false) {
         if(!inputPass || inputPass.trim() === "") return;
         try {
@@ -314,7 +330,7 @@
 
             if (inputPass === targetPass) {
                 isTeacher = true;
-                localStorage.setItem('hoca_otomatik_sifre', inputPass); // Şifreyi tarayıcıya kilitle
+                localStorage.setItem('hoca_otomatik_sifre', inputPass); 
                 document.getElementById('system-password').value = inputPass;
                 document.getElementById('main-body').classList.remove('view-mode');
                 document.getElementById('lock-status-text').innerText = "✅ HOCA MODU AKTİF";
@@ -322,7 +338,7 @@
                 document.getElementById('add-student-row-btn').style.display = "block";
                 document.getElementById('clear-all-students-btn').style.display = "block";
                 
-                if(!isAutoLoad) alert("Giriş başarılı kanka! Şifren bu cihaza kaydedildi.");
+                if(!isAutoLoad) alert("Giriş başarılı kanka! Sistem yeni kurumsal kimliğe büründü.");
                 initStudentList();
                 if(activeStudentId) showStudentCalendar(activeStudentId);
             } else {
@@ -341,6 +357,7 @@
         }
     }
 
+    const RESET_CODE = "tawsann"; 
     function changePasswordFlow() {
         let codeInput = prompt("Şifre değiştirmek için lütfen özel KODU girin:");
         if (codeInput !== RESET_CODE) {
@@ -364,7 +381,6 @@
         }
     }
 
-    // 🗑️ TEK TEK ÖĞRENCİ VE KUTU SİLME MOTORU
     async function deleteSingleStudentClick(id) {
         if (!isTeacher) return;
         let sName = localDataPool['s_name_' + id] || (id + '. Sıradaki Öğrenci');
@@ -375,7 +391,6 @@
         document.getElementById("loading").style.display = "inline";
 
         try {
-            // 1. Silinen öğrenciden sonraki tüm öğrencileri birer sıra yukarı kaydır kanka (Kutular boş kalmasın diye)
             for (let i = id; i < maxVisibleStudents; i++) {
                 let nextId = i + 1;
                 localDataPool['s_name_' + i] = localDataPool['s_name_' + nextId] || "";
@@ -387,12 +402,10 @@
                 await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${i}.json`, { method: 'PUT', body: JSON.stringify(localDataPool['v_phone_' + i]) });
             }
 
-            // 2. En sondaki artık boşa çıkan mükerrer kutunun verilerini tamamen temizle
             await fetch(`${FIREBASE_URL}ders_takip_data/s_name_${maxVisibleStudents}.json`, { method: 'DELETE' });
             await fetch(`${FIREBASE_URL}ders_takip_data/v_pass_${maxVisibleStudents}.json`, { method: 'DELETE' });
             await fetch(`${FIREBASE_URL}ders_takip_data/v_phone_${maxVisibleStudents}.json`, { method: 'DELETE' });
 
-            // 3. Toplam görünür kutu adetini 1 eksilt ve Firebase'e kaydet
             maxVisibleStudents = maxVisibleStudents > 1 ? maxVisibleStudents - 1 : 1;
             await fetch(`${FIREBASE_URL}ders_takip_data/settings_max_visible.json`, { method: 'PUT', body: JSON.stringify(maxVisibleStudents) });
             localDataPool['settings_max_visible'] = maxVisibleStudents;
@@ -407,7 +420,6 @@
             initStudentList();
         } catch (error) {
             alert("Silme işlemi sırasında hata oluştu!");
-            console.log(error);
         }
         document.getElementById("loading").style.display = "none";
     }
@@ -628,7 +640,7 @@
         let year = document.getElementById('year-select').value;
         let month = document.getElementById('month-select').value;
 
-        let mesaj = "📋 *TALEBE ÖDEV VE BAŞARI RAPORU* 📋\n\n" +
+        let mesaj = "📋 *" + MEDRESE_ISMI.toUpperCase() + " ÖDEV VE BAŞARI RAPORU* 📋\n\n" +
                     "👤 *Öğrenci:* " + sName + "\n" +
                     "📅 *Dönem:* " + month + " " + year + " - " + w + ". Hafta\n" +
                     "----------------------------------------\n\n";
@@ -821,6 +833,7 @@
     }
 
     // Başlangıç Ayarları
+    applyMedreseKurumsalAyarlari();
     setupDynamicPwaManifest();
     initDatePickerMemory();
     verileriBuluttanCek();
