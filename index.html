@@ -104,7 +104,7 @@
         .monthly-score-text { font-size: 15px; font-weight: bold; }
         #loading { text-align: center; color: #ffa502; font-weight: bold; font-size: 13px; display: none; margin-left: 5px; }
         
-        .view-mode .task-input, .view-mode .score-input, .view-mode .name-input, .view-mode .view-mode .v-pass-input, .view-mode .v-phone-input { pointer-events: none; border: none; background: transparent; box-shadow: none; resize: none; }
+        .view-mode .task-input, .view-mode .score-input, .view-mode .name-input, .view-mode .v-pass-input, .view-mode .v-phone-input { pointer-events: none; border: none; background: transparent; box-shadow: none; resize: none; }
 
         /* POPUP MODAL */
         .wp-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; padding: 15px; }
@@ -478,7 +478,9 @@
             
             let btn = document.createElement('button');
             btn.className = 'go-btn';
-            btn.innerText = 'Bak ➡️';
+            btn.id = 'gobtn-text-' + i;
+            // 🔄 Eğer o an öğrenci zaten açıksa butonda "Kapat" yazar kanka
+            btn.innerText = (activeStudentId == i) ? 'Kapat ↩️' : 'Bak ➡️';
             btn.onclick = (function(id) { return function() { handleStudentAccessVerification(id); }; })(i);
             row.appendChild(btn);
 
@@ -508,7 +510,16 @@
         }
     }
 
+    // 🔄 AÇ-KAPAT (TOGGLE) MANTIĞI ENTEGRE EDİLDİ
     function handleStudentAccessVerification(id) {
+        // Eğer zaten açık olan öğrencinin butonuna tekrar basıldıysa tık diye kapat kanka
+        if (activeStudentId === id) {
+            document.getElementById('calendar-panel').style.display = "none";
+            activeStudentId = null;
+            initStudentList(); // Buton yazılarını "Bak ➡️" haline geri döndür
+            return;
+        }
+
         if (isTeacher || verifiedStudentAccessId === id) {
             showStudentCalendar(id);
             return;
@@ -549,14 +560,6 @@
         const year = document.getElementById('year-select').value;
         const month = document.getElementById('month-select').value;
         
-        for(let i=1; i<=50; i++) {
-            let rBox = document.getElementById('row-box-' + i);
-            if(rBox) rBox.classList.remove('active-row');
-        }
-        if(document.getElementById('row-box-' + id)) {
-            document.getElementById('row-box-' + id).classList.add('active-row');
-        }
-
         let savedName = localDataPool['s_name_' + id] || (id + '. Öğrenci');
         document.getElementById('current-student-name').innerText = '👤 ' + savedName + ' - Ödev ve Başarı Karnesi';
         
@@ -608,6 +611,7 @@
         }
 
         document.getElementById('calendar-panel').style.display = "block";
+        initStudentList(); // Aktif satırı renklendirmek ve butonu "Kapat" yapmak için listeyi tazele kanka
         calculateScoresLive();
     }
 
